@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "slot_helper",
+  "version": "${version}",
+  "name": "Slot Helper",
+  "description": "",
+  "authors": [
+    "Andrew6rant (Andrew Grant)"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/slot_helper/icon.png",
+  "environment": "client",
+  "entrypoints": {
+  },
+  "mixins": [
+    "slot_helper.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.8",
+    "fabric": "*",
+    "minecraft": "1.19"
+  }
+}
