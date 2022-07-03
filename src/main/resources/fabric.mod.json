@@ -12,6 +12,9 @@
   "icon": "assets/slot_helper/icon.png",
   "environment": "client",
   "entrypoints": {
+    "client": [
+      "io.github.andrew6rant.slot_helper.SlotHelperClient"
+    ]
   },
   "mixins": [
     "slot_helper.mixins.json"

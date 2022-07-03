@@ -1,16 +1,25 @@
 package io.github.andrew6rant.slot_helper.mixin;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
+import io.github.andrew6rant.slot_helper.SlotHelperClient;
+import io.github.andrew6rant.slot_helper.data.ResourceLoader;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.ScreenHandlerProvider;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.resource.Resource;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.JsonHelper;
 import net.minecraft.util.math.Matrix4f;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,6 +28,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 
 @Environment(EnvType.CLIENT)
 @Mixin(HandledScreen.class)
@@ -29,7 +42,7 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     @Shadow
     protected int y;
 
-    @Nullable protected Slot focusedSlot;
+    protected Slot focusedSlot;
 
     @Shadow
     protected boolean isPointWithinBounds(int x, int y, int width, int height, double pointX, double pointY) {
@@ -42,27 +55,47 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         super(title);
     }
 
+    Map<Identifier, Resource> resources = ResourceLoader.getResources();
+    JsonObject jsonObject = ResourceLoader.getJSON();
+
     @Redirect(method= "render", at = @At(value = "INVOKE", target="Lnet/minecraft/client/gui/screen/ingame/HandledScreen;drawSlotHighlight(Lnet/minecraft/client/util/math/MatrixStack;III)V"))
     private void customHighlighter(MatrixStack matrices, int startX, int startY, int z) {
-        int endX = startX + 16;
-        int endY = startY + 16;
+        int[][] posTest = null;
         int color = -2130706433;
-
-        if (this.title.equals(Text.translatable("container.blast_furnace"))) {
-            if(focusedSlot != null && focusedSlot.id == 1) {
-                startX -= 10;
-                endX += 10;
-                color = -2141560118;
-                //System.out.println(toHexString(-2130706433)); // 80ffffff // rgba(255, 255, 255, 128)
-            } else if (focusedSlot != null && focusedSlot.id == 2) {
-                startX -= 4;
-                endX += 4;
-                startY -= 4;
-                endY += 4;
-                color = -597290227;
+        outerloop:
+        for (Identifier path : resources.keySet()) {
+            String pathString = path.toString();
+            String newSentence = pathString.substring(pathString.lastIndexOf('/') + 1);
+            if (this.title.equals(Text.translatable(newSentence.substring(0,newSentence.length()-5)))) {
+                try {
+                    JsonObject assetData = jsonObject.getAsJsonObject("slot_helper");
+                    for (Map.Entry<String, JsonElement> entry : assetData.entrySet()) {
+                        if(focusedSlot.id == Integer.parseInt(entry.getKey())) {
+                            JsonObject slotData = entry.getValue().getAsJsonObject();
+                            JsonArray coordData = slotData.getAsJsonArray("coords");
+                            posTest = new int[coordData.size()][2];
+                            for (int i = 0; i < coordData.size(); i++) {
+                                JsonArray coord = coordData.get(i).getAsJsonArray();
+                                posTest[i][0] = coord.get(0).getAsInt();
+                                posTest[i][1] = coord.get(1).getAsInt();
+                            }
+                            color = slotData.get("color").getAsInt();
+                            break outerloop;
+                        }
+                    }
+                } catch (Exception e) {
+                    SlotHelperClient.warn("Caught exception: %s", e.toString());
+                }
             }
         }
-
+        if (posTest==null) { // if no match is found, use default shape
+            posTest = new int[][] {
+                    {0, 0},
+                    {0, 16},
+                    {16, 16},
+                    {16, 0}
+            };
+        }
         RenderSystem.disableDepthTest();
         RenderSystem.colorMask(true, true, true, false);
         RenderSystem.disableTexture();
@@ -73,10 +106,13 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         BufferBuilder bufferBuilder = tessellator.getBuffer();
         bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         Matrix4f matrix = matrices.peek().getPositionMatrix();
-        bufferBuilder.vertex(matrix, (float)endX, (float)startY, (float)z).color(color).next();
-        bufferBuilder.vertex(matrix, (float)startX, (float)startY, (float)z).color(color).next();
-        bufferBuilder.vertex(matrix, (float)startX, (float)endY, (float)z).color(color).next();
-        bufferBuilder.vertex(matrix, (float)endX, (float)endY, (float)z).color(color).next();
+
+        for (int[] pos : posTest) {
+            bufferBuilder.vertex(matrix, (float)(startX + pos[0]), (float)(startY + pos[1]), (float)z).color(color).next();
+            //System.out.println("X: " + (float)(startX + pos[0]) + " Y: " + (float)(startY + pos[1]));
+        }
+        //System.out.println("------------");
+
         tessellator.draw();
         RenderSystem.disableBlend();
         RenderSystem.enableTexture();
