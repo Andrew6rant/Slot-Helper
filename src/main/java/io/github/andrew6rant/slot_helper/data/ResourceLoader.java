@@ -48,7 +48,7 @@ public class ResourceLoader implements SimpleSynchronousResourceReloadListener {
             try {
                 // Get the resource
                 Optional<Resource> r = manager.getResource(id);
-                System.out.println("Found resource: "+r.isPresent()+ " for "+id.toTranslationKey()+ " "+id.toUnderscoreSeparatedString());
+                //System.out.println("Found resource: "+r.isPresent()+ " for "+id.toTranslationKey()+ " "+id.toUnderscoreSeparatedString());
                 // Read our resource as a JSON
                 String data = inputStreamToString(r.get().getInputStream());
                 jsonObject = JsonHelper.deserialize(data);
