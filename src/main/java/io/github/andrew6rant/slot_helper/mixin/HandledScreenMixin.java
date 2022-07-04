@@ -82,7 +82,7 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                             JsonObject slotData = entry.getValue().getAsJsonObject();
                             JsonArray coordsJson = slotData.getAsJsonArray("coords");
                             coords = JsonArrayToIntArray(coordsJson);
-                            color = slotData.get("color").getAsInt();
+                            color = (int)Long.parseUnsignedLong(slotData.get("color").getAsString(), 16);
                             break outerloop;
                         }
                     }
